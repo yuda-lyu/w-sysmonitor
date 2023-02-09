@@ -1,6 +1,6 @@
 {
   "name": "w-sysmonitor",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "main": "dist/w-sysmonitor.umd.js",
   "dependencies": {
     "lodash": "^4.17.21",

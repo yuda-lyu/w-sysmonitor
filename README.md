@@ -9,7 +9,7 @@ A system monitor in nodejs.
 [![jsdelivr download](https://img.shields.io/jsdelivr/npm/hm/w-sysmonitor.svg)](https://www.jsdelivr.com/package/npm/w-sysmonitor)
 
 ## Documentation
-To view documentation or get support, visit [docs](https://yuda-lyu.github.io/w-sysmonitor/global.html).
+To view documentation or get support, visit [docs](https://yuda-lyu.github.io/w-sysmonitor/WSysmonitor.html).
 
 ## Installation
 ### Using npm(ES6 module):

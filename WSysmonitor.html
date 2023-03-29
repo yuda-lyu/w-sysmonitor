@@ -14,6 +14,7 @@
     <link type="text/css" rel="stylesheet" href="styles/prettify.css">
     <link type="text/css" rel="stylesheet" href="styles/jsdoc.css">
     <script src="scripts/nav.js" defer></script>
+    
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
@@ -27,7 +28,9 @@
 
 <nav >
     
+    
     <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="WSysmonitor.html">WSysmonitor</a></li></ul>
+    
 </nav>
 
 <div id="main">
@@ -45,7 +48,9 @@
 <header>
     
         <h2>
-        WSysmonitor
+        
+            WSysmonitor
+        
         </h2>
         
     
@@ -59,7 +64,7 @@
 
     
 
-    <h4 class="name" id="WSysmonitor"><span class="type-signature">(async) </span>new WSysmonitor<span class="signature">(opt<span class="signature-attributes">opt</span>)</span><span class="type-signature"> &rarr; {Object}</span></h4>
+    <h4 class="name" id="WSysmonitor"><span class="type-signature type-signature-async">(async) </span>new WSysmonitor<span class="signature">(opt<span class="signature-attributes">opt</span>)</span><span class="type-signature"> &rarr; {Object}</span></h4>
 
     
 
@@ -67,6 +72,10 @@
 
 
 <dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>系統資訊監控</p></li></ul></dd>
+    
 
     
     <dt class="tag-source">Source:</dt>
@@ -110,26 +119,20 @@
 
 
 
-<div class="description usertext">
-    <p>系統資訊監控</p>
-</div>
 
 
 
 
 
 
-
-
-
-    <h5>Example</h5>
+    <h5 class="h5-examples">Example</h5>
     
     <pre class="prettyprint"><code>import wsm from 'w-sysmonitor'wsm()    .then((r) => {        console.log(r)        // => {        //   cpuInfo: {        //     totalIdle: 619133495,        //     totalTick: 725060735,        //     avgIdle: 77391686.875,        //     avgTotal: 90632591.875        //   },        //   cpuCount: 8,        //   cpuUsedPercentage: 3.87,        //   cpuModel: 'Intel(R) Core(TM) i7-10510U CPU @ 1.80GHz',        //   disksInfo: [        //     {        //       name: 'C:',        //       display: '本機固定式磁碟',        //       total: 292.30057525634766,        //       free: 105.25997543334961,        //       used: 187.04059982299805,        //       usedPercentage: 63.9891316186988        //     },        //     {        //       name: 'D:',        //       display: '本機固定式磁碟',        //       total: 660.8984336853027,        //       free: 124.43569946289062,        //       used: 536.4627342224121,        //       usedPercentage: 81.17173636363275        //     },        //     {        //       name: 'G:',        //       display: '本機固定式磁碟',        //       total: 102,        //       free: 83.06204223632812,        //       used: 18.937957763671875,        //       usedPercentage: 18.566625258501837        //     }        //   ],        //   diskCount: 3,        //   diskTotal: 1055.1990089416504,        //   diskFree: 312.75771713256836,        //   diskUsed: 742.441291809082,        //   diskUsedPercentage: 70.36030981053896,        //   memInfo: {        //     totalMemMb: 16182.2,        //     usedMemMb: 10579.27,        //     freeMemMb: 5602.93,        //     usedMemPercentage: 65.38,        //     freeMemPercentage: 34.62        //   },        //   memFree: 5.471611328125,        //   memTotal: 15.8029296875,        //   memUsed: 10.331318359375,        //   memUsedPercentage: 65.38,        //   heapInfo: {        //     total_heap_size: 7385088,        //     total_heap_size_executable: 524288,        //     total_physical_size: 7385088,        //     total_available_size: 4339566408,        //     used_heap_size: 5561400,        //     heap_size_limit: 4345298944,        //     malloced_memory: 262256,        //     peak_malloced_memory: 7010040,        //     does_zap_garbage: 0,        //     number_of_native_contexts: 2,        //     number_of_detached_contexts: 0,        //     total_global_handles_size: 8192,        //     used_global_handles_size: 5856,        //     external_memory: 666592        //   },        //   heapTotal: 4.046875,        //   heapFree: 4.041536159813404,        //   heapUsed: 0.005338840186595917,        //   heapUsedPercentage: 0.1319250084718682,        //   netsInfo: {        //     'Wi-Fi': [ [Object], [Object] ],        //   },        //   osPlatform: 'win32',        //   osUptime: 153059,        //   osHostname: 'DESKTOP-6R7USAO',        //   osType: 'Windows_NT',        //   osArch: 'x64',        //   osMachine: 'x86_64',        //   userInfo: {        //     uid: -1,        //     gid: -1,        //     username: 'username',        //     homedir: 'C:\\Users\\username',        //     shell: null        //   }        // }    })    .catch((err) => {        console.log(err)    })</code></pre>
 
 
 
 
-    <h5>Parameters:</h5>
+    <h5 class="h5-parameters">Parameters:</h5>
     
 
 <table class="params">
@@ -165,6 +168,7 @@
             
                 
 <span class="param-type">Object</span>
+
 
 
             
@@ -229,6 +233,7 @@
 <span class="param-type">String</span>
 
 
+
             
             </td>
 
@@ -281,7 +286,7 @@
 
 
 
-<h5>Returns:</h5>
+<h5 class="h5-returns">Returns:</h5>
 
         
 <div class="param-desc">
@@ -297,6 +302,7 @@
     <dd>
         
 <span class="param-type">Object</span>
+
 
 
     </dd>
@@ -343,7 +349,7 @@
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.6.11</a> on Tue Mar 21 2023 22:37:11 GMT+0800 (台北標準時間) using the <a href="https://github.com/clenemt/docdash">docdash</a> theme.
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 4.0.2</a> on Wed Mar 29 2023 10:54:30 GMT+0800 (台北標準時間) using the <a href="https://github.com/clenemt/docdash">docdash</a> theme.
 </footer>
 
 <script>prettyPrint();</script>

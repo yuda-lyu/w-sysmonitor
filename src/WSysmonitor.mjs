@@ -3,8 +3,8 @@ import os from 'node:os'
 // import process from 'node:process'
 import osu from 'node-os-utils'
 import nodeDiskInfo from 'node-disk-info'
-import get from 'lodash/get'
-import isNumber from 'lodash/isNumber'
+import get from 'lodash-es/get'
+import isNumber from 'lodash-es/isNumber'
 
 
 let cv = 1024 * 1024 * 1024 //byte -> g

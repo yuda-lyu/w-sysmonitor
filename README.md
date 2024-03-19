@@ -16,7 +16,7 @@ To view documentation or get support, visit [docs](https://yuda-lyu.github.io/w-
 ### Using npm(ES6 module):
 > **Note:** `w-sysmonitor` is mainly dependent on `node-disk-info` and `node-os-utils`.
 
-> **Note:** umd file includes with `lodash`, by using tree-shaking for dead-code elimination.
+> **Note:** umd file includes with `lodash-es`, by using tree-shaking for dead-code elimination.
 
 ```alias
 npm i w-sysmonitor

@@ -6,6 +6,7 @@ A system monitor in nodejs.
 [![license](https://img.shields.io/npm/l/w-sysmonitor.svg?style=flat)](https://npmjs.org/package/w-sysmonitor) 
 [![gzip file size](http://img.badgesize.io/yuda-lyu/w-sysmonitor/master/dist/w-sysmonitor.umd.js.svg?compression=gzip)](https://github.com/yuda-lyu/w-sysmonitor)
 [![npm download](https://img.shields.io/npm/dt/w-sysmonitor.svg)](https://npmjs.org/package/w-sysmonitor) 
+[![npm download](https://img.shields.io/npm/dm/w-sysmonitor.svg)](https://npmjs.org/package/w-sysmonitor) 
 [![jsdelivr download](https://img.shields.io/jsdelivr/npm/hm/w-sysmonitor.svg)](https://www.jsdelivr.com/package/npm/w-sysmonitor)
 
 ## Documentation

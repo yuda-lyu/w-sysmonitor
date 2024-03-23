@@ -1,3 +1,5 @@
+import fs from 'fs'
+import _ from 'lodash-es'
 import wsm from './src/WSysmonitor.mjs'
 // import wsm from './dist/w-sysmonitor.umd.js'
 
@@ -93,6 +95,10 @@ wsm()
         //     shell: null
         //   }
         // }
+
+        let j = JSON.stringify(_.keys(r))
+        fs.writeFileSync('./test/rout.json', j, 'utf8')
+
     })
     .catch((err) => {
         console.log(err)

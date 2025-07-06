@@ -1,10 +1,10 @@
-#node --experimental-modules --es-module-specifier-resolution=node toolg/addVersion.mjs
-node --experimental-modules --es-module-specifier-resolution=node toolg/modifyReadme.mjs
+#node toolg/addVersion.mjs
+node toolg/modifyReadme.mjs
 
-node --experimental-modules --es-module-specifier-resolution=node toolg/cleanFolder.mjs
+node toolg/cleanFolder.mjs
 ./node_modules/.bin/jsdoc -c .jsdoc
 
-node --experimental-modules --es-module-specifier-resolution=node toolg/gDistRollup.mjs
+node toolg/gDistRollup.mjs
 
 git add .  -A
 git commit -m 'modify: '

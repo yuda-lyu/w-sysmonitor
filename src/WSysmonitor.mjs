@@ -15,7 +15,7 @@ let cv = 1024 * 1024 * 1024 //byte -> g
  *
  * @class
  * @param {Object} [opt={}] 輸入設定物件，預設{}
- * @param {String} [opt.timeCpuUsage=200] 輸入偵測CPU使用率時取樣時間數字，單位ms，預設200
+ * @param {Integer} [opt.timeCpuUsage=200] 輸入偵測CPU使用率時取樣時間數字，單位ms，預設200
  * @returns {Object} 回傳系統資訊物件
  * @example
  *

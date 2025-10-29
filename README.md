@@ -12,10 +12,12 @@ A system monitor in nodejs.
 To view documentation or get support, visit [docs](https://yuda-lyu.github.io/w-sysmonitor/WSysmonitor.html).
 
 ## Installation
+
 ### Using npm(ES6 module):
 ```alias
 npm i w-sysmonitor
 ```
+
 #### Example for collection
 > **Link:** [[dev source code](https://github.com/yuda-lyu/w-sysmonitor/blob/master/g.mjs)]
 ```alias

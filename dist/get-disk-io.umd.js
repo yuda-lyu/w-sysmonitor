@@ -1,5 +1,5 @@
 /*!
- * get-disk-io v1.0.12
+ * get-disk-io v1.0.13
  * (c) 2018-2021 yuda-lyu(semisphere)
  * Released under the MIT License.
  */

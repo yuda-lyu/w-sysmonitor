@@ -1,5 +1,5 @@
 /*!
- * w-sysmonitor v1.0.14
+ * w-sysmonitor v1.0.15
  * (c) 2018-2021 yuda-lyu(semisphere)
  * Released under the MIT License.
  */

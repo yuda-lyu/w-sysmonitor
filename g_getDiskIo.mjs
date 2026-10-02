@@ -7,4 +7,4 @@ let r = await getDiskIo()
 console.log('r', r)
 
 
-//node g2.mjs
+//node g_getDiskIo.mjs

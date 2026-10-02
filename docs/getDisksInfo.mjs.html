@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+    <meta charset="utf-8">
+    <title>getDisksInfo.mjs - Documentation</title>
+    
+    
+    <script src="scripts/prettify/prettify.js"></script>
+    <script src="scripts/prettify/lang-css.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc.css">
+    <script src="scripts/nav.js" defer></script>
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+
+<input type="checkbox" id="nav-trigger" class="nav-trigger" />
+<label for="nav-trigger" class="navicon-button x">
+  <div class="navicon"></div>
+</label>
+
+<label for="nav-trigger" class="overlay"></label>
+
+<nav >
+    
+    
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="WSysmonitor.html">WSysmonitor</a></li></ul><h3>Global</h3><ul><li><a href="global.html#getDisksInfo">getDisksInfo</a></li></ul>
+    
+</nav>
+
+<div id="main">
+    
+    <h1 class="page-title">getDisksInfo.mjs</h1>
+    
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>import fs from 'fs'
+import { execFile } from 'child_process'
+import get from 'lodash-es/get.js'
+import isFunction from 'lodash-es/isFunction.js'
+
+
+let letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
+
+let units = {
+    '': 1,
+    'K': 1024,
+    'M': 1024 * 1024,
+    'G': 1024 * 1024 * 1024,
+    'T': 1024 * 1024 * 1024 * 1024,
+}
+
+//df -kP資料列依序為: 檔案系統, 總量, 已用, 可用, 使用率, 掛載點; 以中間數字欄錨定, 數值可為負(BSD可用量)或'-'(未知)
+//首欄可為空字串(以空字串為來源之掛載, GNU df印成補滿空白之空欄), 首欄與末欄可含換行以外任意字元(含CR、U+2028、U+2029), -kP下GNU與BusyBox皆不換行
+let regRow = /^(.*?)\s+(-?\d+|-)\s+(-?\d+|-)\s+(-?\d+|-)\s+(\d+%|-)\s+(\/.*)$/s
+
+//df標頭之單位, 例如'1024-blocks'、'512-blocks'、'1K-blocks', 譯為他國語言時仍保留'數字-'格式
+let regUnit = /(\d+)([KMGT]?)B?-/i
+
+//進行中之查詢, 依查詢函數分開保存(測試注入之函數各自獨立), 同一查詢對象同時只保留一個進行中請求, 避免卡住的請求(如斷線之網路磁碟)隨輪詢累積佔用執行緒池
+//僅限制同一對象不重複, 不限制總數: 同時無回應之磁碟代號數達UV_THREADPOOL_SIZE(預設4)時, 單次呼叫即會佔滿執行緒池直至系統放棄
+let inFlights = new WeakMap()
+
+//df逾時以SIGKILL中止後通常數十ms內結束, 逾期超過此寬限仍未結束者視為卡住(如FUSE請求已送至使用者空間, SIGKILL後仍不可中斷地等待)
+let dfStuckGrace = 1000
+
+
+function toNumber(v) {
+    let n = Number(v) //statfs可能回傳number或bigint
+    return Number.isFinite(n) ? n : 0
+}
+
+
+function toTimeout(v, def) {
+    let n = Number(v)
+    if (!Number.isFinite(n) || n &lt;= 0) {
+        return def
+    }
+    return Math.min(2147483647, Math.max(1, Math.round(n))) //execFile之timeout須為整數; Node計時器上限2147483647ms, 超過會被改為1ms而立即逾時
+}
+
+
+function createTimeoutError(msg) {
+    let err = new Error(msg)
+    err.timeout = true
+    return err
+}
+
+
+function shareInFlight(fn, key, start) {
+    let m = inFlights.get(fn)
+    if (!m) {
+        m = new Map()
+        inFlights.set(fn, m)
+    }
+    let rec = m.get(key)
+    if (!rec) {
+        rec = {
+            pm: Promise.resolve().then(start),
+            t: performance.now(), //單調時鐘, 不受系統時間校正或手動調整影響
+        }
+        m.set(key, rec)
+        let clear = () => {
+            if (m.get(key) === rec) {
+                m.delete(key)
+            }
+        }
+        rec.pm.then(clear, clear)
+    }
+    return rec
+}
+
+
+function waitInFlight(rec, ms, msg) {
+    //逾時自請求發出起算(含執行緒池排隊時間), 已逾時仍未結束之請求不再等待亦不重發
+    let remain = ms - (performance.now() - rec.t)
+    if (remain &lt;= 0) {
+        return Promise.reject(createTimeoutError(msg))
+    }
+    let t = null
+    let pmTimeout = new Promise((resolve, reject) => {
+        t = setTimeout(() => {
+            reject(createTimeoutError(msg))
+        }, remain)
+    })
+    return Promise.race([rec.pm, pmTimeout])
+        .finally(() => {
+            clearTimeout(t)
+        })
+}
+
+
+async function getDisksByStatfs(statfs, timeoutDrive) {
+
+    if (!isFunction(statfs)) {
+        throw new Error('fs.promises.statfs is not available, requires Node.js >= 18.15.0')
+    }
+
+    //各代號之結果依代號順序保存, 使錯誤訊息不受完成先後影響
+    let timeouts = []
+    let fails = []
+    let rs = await Promise.all(letters.map(async (c, k) => {
+        let name = `${c}:`
+        let root = `${name}\\` //須帶根目錄斜線, 僅給'C:'會依該碟之目前目錄解析
+        try {
+            let rec = shareInFlight(statfs, root, () => statfs(root))
+            let s = await waitInFlight(rec, timeoutDrive, `statfs ${root} timeout`)
+            let bsize = toNumber(s.bsize)
+            let total = toNumber(s.blocks) * bsize
+            if (total &lt;= 0) {
+                return null
+            }
+            let free = Math.max(0, toNumber(s.bavail) * bsize)
+            return {
+                name,
+                display: '', //statfs無磁碟描述可用, 且不另啟外部程式取得
+                total,
+                free,
+                used: Math.max(0, total - free), //同舊版以總量減可用; 有配額時blocks與bavail皆為呼叫者範圍, bfree則為整卷, 不可混用
+            }
+        }
+        catch (err) {
+            //磁碟代號不存在、無媒體、無權限、逾時或前次查詢尚未結束者皆略過
+            if (err.timeout) {
+                timeouts[k] = name
+            }
+            else if (get(err, 'code') !== 'ENOENT') {
+                fails[k] = `${name} ${get(err, 'code') || 'error'}`
+            }
+            return null
+        }
+    }))
+    rs = rs.filter((r) => r !== null)
+    timeouts = timeouts.filter((v) => v)
+    fails = fails.filter((v) => v)
+
+    //全數失敗且有逾時或代號不存在以外之錯誤(如Node權限模型未授權讀取磁碟根目錄)者視為量測失敗, 不以空陣列冒充無磁碟; 僅全部代號皆不存在時回傳空陣列
+    if (rs.length === 0 &amp;&amp; timeouts.length > 0) {
+        throw new Error(`statfs timeout: ${timeouts.join(', ')}`)
+    }
+    if (rs.length === 0 &amp;&amp; fails.length > 0) {
+        throw new Error(`statfs failed: ${fails.join(', ')}`)
+    }
+
+    return rs
+}
+
+
+function runDf(execFileFn, timeout) {
+    //進行中之df依逾時值分開共用: df子程序以發起者之逾時中止, 若與不同逾時之呼叫者共用, 較長逾時者會於較短者之期限被一併中止
+    let key = `df:${timeout}`
+    let m = inFlights.get(execFileFn)
+    if (m &amp;&amp; !m.has(key)) {
+        //其他逾時值之df逾期超過寬限仍未結束時視為卡住, 不論逾時值皆不再啟動新df, 避免卡住之df隨不同逾時值累積
+        let now = performance.now()
+        for (let [k, r] of m) {
+            if (k.startsWith('df:') &amp;&amp; now - r.t >= Number(k.slice(3)) + dfStuckGrace) {
+                return Promise.reject(createTimeoutError('df timeout'))
+            }
+        }
+    }
+    let rec = shareInFlight(execFileFn, key, () => {
+        return new Promise((resolve) => {
+            let env = { ...process.env }
+            delete env.POSIXLY_CORRECT //BusyBox於此環境變數存在時忽略-k改以512為單位
+            execFileFn('df', ['-kP'], {
+                env,
+                timeout,
+                killSignal: 'SIGKILL',
+                windowsHide: true,
+                maxBuffer: 10 * 1024 * 1024,
+            }, (err, stdout, stderr) => {
+                resolve({
+                    err,
+                    stdout: String(stdout || ''),
+                    stderr: String(stderr || ''),
+                })
+            })
+        })
+    })
+    return waitInFlight(rec, timeout, 'df timeout')
+}
+
+
+function parseDf(stdout) {
+    let lines = String(stdout).split(/\r?\n/).filter((line) => line.trim() !== '')
+    let unit = 1024
+    let rs = []
+    lines.forEach((line, k) => {
+        let m = line.match(regRow)
+        if (!m) {
+            //首列為標頭, 由標頭取得單位, 取不到時維持1024
+            if (k === 0) {
+                let mu = line.match(regUnit)
+                if (mu) {
+                    let u = Number(mu[1]) * units[mu[2].toUpperCase()]
+                    if (u > 0) {
+                        unit = u
+                    }
+                }
+            }
+            return
+        }
+        let [, display, sTotal, sUsed, sFree, sPct, name] = m
+        if (sTotal === '-' || sUsed === '-' || sFree === '-') {
+            return //數值未知
+        }
+        if (sUsed === '-1' &amp;&amp; sPct === '100%') {
+            return //數值未知: illumos/Solaris df於可用量未知時已用欄印-1且使用率固定印100%
+        }
+        let total = Number(sTotal) * unit
+        if (!(total > 0)) {
+            return //容量為0之偽檔案系統(如macOS之map auto_home)略過
+        }
+        rs.push({
+            name,
+            display,
+            total,
+            free: Math.max(0, Number(sFree) * unit), //BSD磁碟用量超過保留區時可用量為負
+            used: Math.max(0, Number(sUsed) * unit), //GNU df於可用區塊多於總量時已用量為負
+        })
+    })
+    return rs
+}
+
+
+async function getDisksByDf(execFileFn, timeout) {
+    let r = await runDf(execFileFn, timeout)
+
+    //df被訊號終止、被殺(逾時或輸出超過maxBuffer)或無法啟動時stdout不完整, 一律視為失敗; 僅正常結束之數字離開碼(如部分掛載點無法讀取)才採用已輸出之列
+    if (r.err &amp;&amp; !(typeof r.err.code === 'number' &amp;&amp; !r.err.killed &amp;&amp; !r.err.signal)) {
+        throw r.err
+    }
+
+    //以解析出至少1列判定成功
+    let rs = parseDf(r.stdout)
+    if (rs.length === 0) {
+        if (r.err) {
+            throw r.err
+        }
+        throw new Error(`df returned no disk rows${r.stderr.trim() ? `: ${r.stderr.trim()}` : ''}`)
+    }
+
+    return rs
+}
+
+
+/**
+ * 取得各磁碟容量資訊，Windows以fs.statfs逐一查詢A:至Z:磁碟代號(需Node.js>=18.15.0)，其他平台以df -kP取得，皆不依賴wmic
+ *
+ * Windows只列出可查得容量之磁碟代號，無媒體之光碟機等會略過；statfs無磁碟類型資訊，故卸除式、網路磁碟等可查得者亦會列出。
+ * 容量為0之偽檔案系統一律略過。同一磁碟代號或df同時只保留一個進行中請求，同時之呼叫共用其結果，逾時未結束者後續呼叫直接略過不重發；各呼叫者依自身逾時等待，df另依逾時值分開以免被較短逾時之發起者一併中止，但任一df逾期超過1秒仍未結束(視為卡住)時，不論逾時值皆不再啟動新df。
+ * 全部代號皆不存在時回傳空陣列；全部失敗且有逾時或其他錯誤時reject，df執行失敗或解析不出任何一列時亦reject。
+ *
+ * 限制：
+ * 1. Windows之statfs經libuv執行緒池執行且無法取消，timeoutDrive含排隊時間；每個無回應之磁碟代號(如伺服器不可達之網路磁碟，實測約21秒後系統才放棄)佔用一條執行緒至系統放棄，同時無回應者達UV_THREADPOOL_SIZE(預設4)時，宿主程序之非同步fs、dns、crypto、zlib皆須等待，可於啟動Node前以環境變數調高UV_THREADPOOL_SIZE。
+ * 2. Windows下Node.js&lt;24.16(含18.x、20.x、22.x、25.x)之statfs以32位元回傳配置單位數，配置單位數超過4294967295之磁碟(如以1KiB為單位、大於4TiB之Samba/NAS網路磁碟，或4KiB叢集、大於16TiB之ReFS)容量會被截斷；NTFS磁碟不受影響。
+ * 3. 非Windows平台之df僅於正常結束(含部分掛載點無法讀取之非0離開碼)時採用其輸出，被逾時中止或輸出超過10MB時視為失敗。
+ *
+ * @param {Object} [opt={}] 輸入設定物件，預設{}
+ * @param {Integer} [opt.timeout=10000] 輸入非Windows平台執行df之逾時時間數字，單位ms，未給、非數值、非有限數(如'abc'、NaN、Infinity)或非正數時用預設，超過上限2147483647時以上限計，預設10000
+ * @param {Integer} [opt.timeoutDrive=3000] 輸入Windows平台查詢單一磁碟之逾時時間數字，單位ms，逾時之磁碟略過，未給、非數值、非有限數(如'abc'、NaN、Infinity)或非正數時用預設，超過上限2147483647時以上限計，預設3000
+ * @param {String} [opt.platform=process.platform] 輸入平台字串，供測試注入，預設process.platform
+ * @param {Function} [opt.statfs=fs.promises.statfs] 輸入查詢磁碟之函數，供測試注入，未給或給undefined時用預設，給null視為不可用，預設fs.promises.statfs
+ * @param {Function} [opt.execFile=child_process.execFile] 輸入執行外部程式之函數，供測試注入，預設child_process.execFile
+ * @returns {Promise} 回傳Promise，resolve回傳磁碟資訊物件陣列，各物件含name(Windows為磁碟代號如'C:'，其他平台為掛載點)、display(Windows為空字串，其他平台為df之檔案系統名稱)、total、free、used(單位皆為byte)，reject回傳錯誤訊息
+ * @example
+ *
+ * import getDisksInfo from './src/getDisksInfo.mjs'
+ *
+ * let r = await getDisksInfo()
+ * console.log(r)
+ * // => [
+ * //   {
+ * //     name: 'C:',
+ * //     display: '',
+ * //     total: 204936835072,
+ * //     free: 34902945792,
+ * //     used: 170033889280
+ * //   }
+ * // ]
+ *
+ */
+async function getDisksInfo(opt = {}) {
+
+    //platform
+    let platform = get(opt, 'platform')
+    if (!platform) {
+        platform = process.platform
+    }
+
+    //timeout, timeoutDrive
+    let timeout = toTimeout(get(opt, 'timeout'), 10000)
+    let timeoutDrive = toTimeout(get(opt, 'timeoutDrive'), 3000)
+
+    //win32
+    if (platform === 'win32') {
+        let statfs = get(opt, 'statfs')
+        if (statfs === undefined) {
+            statfs = get(fs, 'promises.statfs') //未給或給undefined皆用預設, 測試以null模擬不可用
+        }
+        return getDisksByStatfs(statfs, timeoutDrive)
+    }
+
+    //execFileFn
+    let execFileFn = get(opt, 'execFile')
+    if (!isFunction(execFileFn)) {
+        execFileFn = execFile
+    }
+
+    return getDisksByDf(execFileFn, timeout)
+}
+
+
+export default getDisksInfo
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+    
+    
+</div>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 4.0.5</a> on Fri Oct 02 2026 12:31:01 GMT+0800 (台北標準時間) using the <a href="https://github.com/clenemt/docdash">docdash</a> theme.
+</footer>
+
+<script>prettyPrint();</script>
+<script src="scripts/polyfill.js"></script>
+<script src="scripts/linenumber.js"></script>
+
+
+
+</body>
+</html>

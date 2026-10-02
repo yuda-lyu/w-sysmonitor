@@ -12,11 +12,9 @@ rollupFiles({
     fdTar,
     nameDistType: 'kebabCase',
     globals: {
-        'node-disk-info': 'node-disk-info',
         'node-os-utils': 'node-os-utils',
     },
     external: [
-        'node-disk-info',
         'node-os-utils',
     ],
 })

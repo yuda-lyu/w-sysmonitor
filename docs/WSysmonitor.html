@@ -29,7 +29,7 @@
 <nav >
     
     
-    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="WSysmonitor.html">WSysmonitor</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="WSysmonitor.html">WSysmonitor</a></li></ul><h3>Global</h3><ul><li><a href="global.html#getDisksInfo">getDisksInfo</a></li></ul>
     
 </nav>
 
@@ -74,13 +74,16 @@
 <dl class="details">
     
     <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>系統資訊監控</p></li></ul></dd>
+    <dd class="tag-description"><ul class="dummy"><li><p>系統資訊監控</p>
+<p>磁碟資訊於Windows以fs.statfs取得(需Node.js&gt;=18.15.0)，其他平台以df -kP取得，皆不依賴wmic，細節與限制見getDisksInfo。
+disksInfo各磁碟之display於Windows為空字串，其他平台為檔案系統名稱；total、free、used單位為GB(1024^3 byte)。
+磁碟查詢逾時預設為Windows每個磁碟代號3秒、其他平台df 10秒，可由opt.timeoutDiskDrive、opt.timeoutDisk調整；查詢失敗時disksInfo為''且磁碟數值皆為0，同一錯誤持續發生時只記錄一次(依程序內上次記錄之訊息判斷，不分呼叫設定，任一次查詢成功即重置)。</p></li></ul></dd>
     
 
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="WSysmonitor.mjs.html">WSysmonitor.mjs</a>, <a href="WSysmonitor.mjs.html#line122">line 122</a>
+        <a href="WSysmonitor.mjs.html">WSysmonitor.mjs</a>, <a href="WSysmonitor.mjs.html#line131">line 131</a>
     </li></ul></dd>
     
 
@@ -127,7 +130,104 @@
 
     <h5 class="h5-examples">Example</h5>
     
-    <pre class="prettyprint"><code>import wsm from 'w-sysmonitor'wsm()    .then((r) => {        console.log(r)        // => {        //   cpuInfo: {        //     totalIdle: 619133495,        //     totalTick: 725060735,        //     avgIdle: 77391686.875,        //     avgTotal: 90632591.875        //   },        //   cpuCount: 8,        //   cpuUsedPercentage: 3.87,        //   cpuModel: 'Intel(R) Core(TM) i7-10510U CPU @ 1.80GHz',        //   disksInfo: [        //     {        //       name: 'C:',        //       display: '本機固定式磁碟',        //       total: 292.30057525634766,        //       free: 105.25997543334961,        //       used: 187.04059982299805,        //       usedPercentage: 63.9891316186988        //     },        //     {        //       name: 'D:',        //       display: '本機固定式磁碟',        //       total: 660.8984336853027,        //       free: 124.43569946289062,        //       used: 536.4627342224121,        //       usedPercentage: 81.17173636363275        //     },        //     {        //       name: 'G:',        //       display: '本機固定式磁碟',        //       total: 102,        //       free: 83.06204223632812,        //       used: 18.937957763671875,        //       usedPercentage: 18.566625258501837        //     }        //   ],        //   diskCount: 3,        //   diskTotal: 1055.1990089416504,        //   diskFree: 312.75771713256836,        //   diskUsed: 742.441291809082,        //   diskUsedPercentage: 70.36030981053896,        //   memInfo: {        //     totalMemMb: 16182.2,        //     usedMemMb: 10579.27,        //     freeMemMb: 5602.93,        //     usedMemPercentage: 65.38,        //     freeMemPercentage: 34.62        //   },        //   memFree: 5.471611328125,        //   memTotal: 15.8029296875,        //   memUsed: 10.331318359375,        //   memUsedPercentage: 65.38,        //   heapInfo: {        //     total_heap_size: 7385088,        //     total_heap_size_executable: 524288,        //     total_physical_size: 7385088,        //     total_available_size: 4339566408,        //     used_heap_size: 5561400,        //     heap_size_limit: 4345298944,        //     malloced_memory: 262256,        //     peak_malloced_memory: 7010040,        //     does_zap_garbage: 0,        //     number_of_native_contexts: 2,        //     number_of_detached_contexts: 0,        //     total_global_handles_size: 8192,        //     used_global_handles_size: 5856,        //     external_memory: 666592        //   },        //   heapTotal: 4.046875,        //   heapFree: 4.041536159813404,        //   heapUsed: 0.005338840186595917,        //   heapUsedPercentage: 0.1319250084718682,        //   netsInfo: {        //     'Wi-Fi': [ [Object], [Object] ],        //   },        //   osPlatform: 'win32',        //   osUptime: 153059,        //   osHostname: 'DESKTOP-6R7USAO',        //   osType: 'Windows_NT',        //   osArch: 'x64',        //   osMachine: 'x86_64',        //   userInfo: {        //     uid: -1,        //     gid: -1,        //     username: 'username',        //     homedir: 'C:\\Users\\username',        //     shell: null        //   }        // }    })    .catch((err) => {        console.log(err)    })</code></pre>
+    <pre class="prettyprint"><code>import wsm from 'w-sysmonitor'
+
+wsm()
+    .then((r) => {
+        console.log(r)
+        // => {
+        //   cpuInfo: {
+        //     totalIdle: 619133495,
+        //     totalTick: 725060735,
+        //     avgIdle: 77391686.875,
+        //     avgTotal: 90632591.875
+        //   },
+        //   cpuCount: 8,
+        //   cpuUsedPercentage: 3.87,
+        //   cpuModel: 'Intel(R) Core(TM) i7-10510U CPU @ 1.80GHz',
+        //   disksInfo: [
+        //     {
+        //       name: 'C:',
+        //       display: '',
+        //       total: 292.30057525634766,
+        //       free: 105.25997543334961,
+        //       used: 187.04059982299805,
+        //       usedPercentage: 63.9891316186988
+        //     },
+        //     {
+        //       name: 'D:',
+        //       display: '',
+        //       total: 660.8984336853027,
+        //       free: 124.43569946289062,
+        //       used: 536.4627342224121,
+        //       usedPercentage: 81.17173636363275
+        //     },
+        //     {
+        //       name: 'G:',
+        //       display: '',
+        //       total: 102,
+        //       free: 83.06204223632812,
+        //       used: 18.937957763671875,
+        //       usedPercentage: 18.566625258501837
+        //     }
+        //   ],
+        //   diskCount: 3,
+        //   diskTotal: 1055.1990089416504,
+        //   diskFree: 312.75771713256836,
+        //   diskUsed: 742.441291809082,
+        //   diskUsedPercentage: 70.36030981053896,
+        //   memInfo: {
+        //     totalMemMb: 16182.2,
+        //     usedMemMb: 10579.27,
+        //     freeMemMb: 5602.93,
+        //     usedMemPercentage: 65.38,
+        //     freeMemPercentage: 34.62
+        //   },
+        //   memFree: 5.471611328125,
+        //   memTotal: 15.8029296875,
+        //   memUsed: 10.331318359375,
+        //   memUsedPercentage: 65.38,
+        //   heapInfo: {
+        //     total_heap_size: 7385088,
+        //     total_heap_size_executable: 524288,
+        //     total_physical_size: 7385088,
+        //     total_available_size: 4339566408,
+        //     used_heap_size: 5561400,
+        //     heap_size_limit: 4345298944,
+        //     malloced_memory: 262256,
+        //     peak_malloced_memory: 7010040,
+        //     does_zap_garbage: 0,
+        //     number_of_native_contexts: 2,
+        //     number_of_detached_contexts: 0,
+        //     total_global_handles_size: 8192,
+        //     used_global_handles_size: 5856,
+        //     external_memory: 666592
+        //   },
+        //   heapTotal: 4.046875,
+        //   heapFree: 4.041536159813404,
+        //   heapUsed: 0.005338840186595917,
+        //   heapUsedPercentage: 0.1319250084718682,
+        //   netsInfo: {
+        //     'Wi-Fi': [ [Object], [Object] ],
+        //   },
+        //   osPlatform: 'win32',
+        //   osUptime: 153059,
+        //   osHostname: 'DESKTOP-6R7USAO',
+        //   osType: 'Windows_NT',
+        //   osArch: 'x64',
+        //   osMachine: 'x86_64',
+        //   userInfo: {
+        //     uid: -1,
+        //     gid: -1,
+        //     username: 'username',
+        //     homedir: 'C:\\Users\\username',
+        //     shell: null
+        //   }
+        // }
+    })
+    .catch((err) => {
+        console.log(err)
+    })</code></pre>
 
 
 
@@ -261,6 +361,86 @@
         </tr>
 
     
+
+        <tr>
+            
+                <td class="name"><code>timeoutDisk</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Integer</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+                <td class="default">
+                
+                    <code>10000</code>
+                
+                </td>
+            
+
+            <td class="description last"><p>輸入非Windows平台執行df取得磁碟資訊之逾時時間數字，單位ms，Windows不適用，未給、非數值、非有限數(如'abc'、NaN、Infinity)或非正數時用預設，超過上限2147483647時以上限計，預設10000</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>timeoutDiskDrive</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Integer</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+                <td class="default">
+                
+                    <code>3000</code>
+                
+                </td>
+            
+
+            <td class="description last"><p>輸入Windows平台查詢單一磁碟代號之逾時時間數字，單位ms，逾時之磁碟略過，其他平台不適用，未給、非數值、非有限數(如'abc'、NaN、Infinity)或非正數時用預設，超過上限2147483647時以上限計，預設3000</p></td>
+        </tr>
+
+    
     </tbody>
 </table>
 
@@ -349,7 +529,7 @@
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 4.0.5</a> on Sun Sep 13 2026 12:14:50 GMT+0800 (台北標準時間) using the <a href="https://github.com/clenemt/docdash">docdash</a> theme.
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 4.0.5</a> on Fri Oct 02 2026 12:31:01 GMT+0800 (台北標準時間) using the <a href="https://github.com/clenemt/docdash">docdash</a> theme.
 </footer>
 
 <script>prettyPrint();</script>

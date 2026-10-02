@@ -29,7 +29,7 @@
 <nav >
     
     
-    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="WSysmonitor.html">WSysmonitor</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="WSysmonitor.html">WSysmonitor</a></li></ul><h3>Global</h3><ul><li><a href="global.html#getDisksInfo">getDisksInfo</a></li></ul>
     
 </nav>
 
@@ -49,20 +49,29 @@
 import os from 'node:os'
 // import process from 'node:process'
 import osu from 'node-os-utils'
-import nodeDiskInfo from 'node-disk-info'
 import get from 'lodash-es/get.js'
 import isNumber from 'lodash-es/isNumber.js'
+import getDisksInfo from './getDisksInfo.mjs'
 
 
 let cv = 1024 * 1024 * 1024 //byte -> g
 
 
+let lastDiskErrMsg = '' //磁碟資訊上次記錄之錯誤訊息, 同一錯誤持續發生時只記錄一次, 避免輪詢時洗版; 程序內共用不分呼叫設定, 任一次查詢成功即重置
+
+
 /**
  * 系統資訊監控
+ *
+ * 磁碟資訊於Windows以fs.statfs取得(需Node.js>=18.15.0)，其他平台以df -kP取得，皆不依賴wmic，細節與限制見getDisksInfo。
+ * disksInfo各磁碟之display於Windows為空字串，其他平台為檔案系統名稱；total、free、used單位為GB(1024^3 byte)。
+ * 磁碟查詢逾時預設為Windows每個磁碟代號3秒、其他平台df 10秒，可由opt.timeoutDiskDrive、opt.timeoutDisk調整；查詢失敗時disksInfo為''且磁碟數值皆為0，同一錯誤持續發生時只記錄一次(依程序內上次記錄之訊息判斷，不分呼叫設定，任一次查詢成功即重置)。
  *
  * @class
  * @param {Object} [opt={}] 輸入設定物件，預設{}
  * @param {Integer} [opt.timeCpuUsage=200] 輸入偵測CPU使用率時取樣時間數字，單位ms，預設200
+ * @param {Integer} [opt.timeoutDisk=10000] 輸入非Windows平台執行df取得磁碟資訊之逾時時間數字，單位ms，Windows不適用，未給、非數值、非有限數(如'abc'、NaN、Infinity)或非正數時用預設，超過上限2147483647時以上限計，預設10000
+ * @param {Integer} [opt.timeoutDiskDrive=3000] 輸入Windows平台查詢單一磁碟代號之逾時時間數字，單位ms，逾時之磁碟略過，其他平台不適用，未給、非數值、非有限數(如'abc'、NaN、Infinity)或非正數時用預設，超過上限2147483647時以上限計，預設3000
  * @returns {Object} 回傳系統資訊物件
  * @example
  *
@@ -84,7 +93,7 @@ let cv = 1024 * 1024 * 1024 //byte -> g
  *         //   disksInfo: [
  *         //     {
  *         //       name: 'C:',
- *         //       display: '本機固定式磁碟',
+ *         //       display: '',
  *         //       total: 292.30057525634766,
  *         //       free: 105.25997543334961,
  *         //       used: 187.04059982299805,
@@ -92,7 +101,7 @@ let cv = 1024 * 1024 * 1024 //byte -> g
  *         //     },
  *         //     {
  *         //       name: 'D:',
- *         //       display: '本機固定式磁碟',
+ *         //       display: '',
  *         //       total: 660.8984336853027,
  *         //       free: 124.43569946289062,
  *         //       used: 536.4627342224121,
@@ -100,7 +109,7 @@ let cv = 1024 * 1024 * 1024 //byte -> g
  *         //     },
  *         //     {
  *         //       name: 'G:',
- *         //       display: '本機固定式磁碟',
+ *         //       display: '',
  *         //       total: 102,
  *         //       free: 83.06204223632812,
  *         //       used: 18.937957763671875,
@@ -239,27 +248,28 @@ async function WSysmonitor(opt = {}) {
     let diskFree = 0
     let diskUsed = 0
     let diskUsedPercentage = 0
-    await nodeDiskInfo.getDiskInfo() //測試大概花100ms
+    await getDisksInfo({ //Windows用fs.statfs, 其他平台用df, 不依賴wmic; 逾時值之驗證與預設由getDisksInfo處理
+        timeout: get(opt, 'timeoutDisk'),
+        timeoutDrive: get(opt, 'timeoutDiskDrive'),
+    })
         .then((r) => {
-        // disksInfo = r
+            lastDiskErrMsg = ''
             disksInfo = r.map((v, k) => {
             // console.log(k, v)
-            // 0 Drive {
-            //   _filesystem: '本機固定式磁碟',
-            //   _blocks: 313855352832,
-            //   _used: 200868184064,
-            //   _available: 112987168768,
-            //   _capacity: '64%',
-            //   _mounted: 'C:'
+            // 0 {
+            //   name: 'C:',
+            //   display: '',
+            //   total: 204936835072,
+            //   free: 34902945792,
+            //   used: 170033889280
             // }
                 let vv = {
-                    name: v._mounted,
-                    display: v._filesystem,
-                    total: v._blocks / cv, //g
-                    free: v._available / cv, //g
-                    used: v._used / cv, //g
-                    // usedPercentageStr: v._capacity,
-                    usedPercentage: v._used / v._blocks * 100,
+                    name: v.name,
+                    display: v.display,
+                    total: v.total / cv, //g
+                    free: v.free / cv, //g
+                    used: v.used / cv, //g
+                    usedPercentage: v.total > 0 ? v.used / v.total * 100 : 0,
                 }
                 diskTotal += vv.total
                 diskFree += vv.free
@@ -267,15 +277,19 @@ async function WSysmonitor(opt = {}) {
                 return vv
             })
             diskCount = disksInfo.length
-            diskUsedPercentage = diskUsed / diskTotal * 100
+            diskUsedPercentage = diskTotal > 0 ? diskUsed / diskTotal * 100 : 0
         })
         .catch((err) => {
-            console.log('catch nodeDiskInfo.getDiskInfo', err)
+            let msg = String(get(err, 'message', err))
+            if (msg !== lastDiskErrMsg) {
+                lastDiskErrMsg = msg
+                console.log('catch getDisksInfo', err)
+            }
         })
     //   disksInfo: [
     //     {
     //       name: 'C:',
-    //       display: '本機固定式磁碟',
+    //       display: '',
     //       total: 292.30057525634766,
     //       free: 105.25997543334961,
     //       used: 187.04059982299805,
@@ -283,7 +297,7 @@ async function WSysmonitor(opt = {}) {
     //     },
     //     {
     //       name: 'D:',
-    //       display: '本機固定式磁碟',
+    //       display: '',
     //       total: 660.8984336853027,
     //       free: 124.43569946289062,
     //       used: 536.4627342224121,
@@ -291,7 +305,7 @@ async function WSysmonitor(opt = {}) {
     //     },
     //     {
     //       name: 'G:',
-    //       display: '本機固定式磁碟',
+    //       display: '',
     //       total: 102,
     //       free: 83.06204223632812,
     //       used: 18.937957763671875,
@@ -578,7 +592,7 @@ export default WSysmonitor
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 4.0.5</a> on Sun Sep 13 2026 12:14:50 GMT+0800 (台北標準時間) using the <a href="https://github.com/clenemt/docdash">docdash</a> theme.
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 4.0.5</a> on Fri Oct 02 2026 12:31:01 GMT+0800 (台北標準時間) using the <a href="https://github.com/clenemt/docdash">docdash</a> theme.
 </footer>
 
 <script>prettyPrint();</script>

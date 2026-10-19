@@ -1,13 +1,13 @@
 {
   "name": "w-sysmonitor",
-  "version": "1.0.16",
+  "version": "1.0.17",
   "main": "dist/w-sysmonitor.umd.js",
   "dependencies": {
     "lodash-es": "^4.18.1",
     "node-os-utils": "^1.3.7"
   },
   "devDependencies": {
-    "w-package-tools": "^1.1.16"
+    "w-package-tools": "^1.1.21"
   },
   "scripts": {
     "test": "mocha --parallel \"test/*.test.mjs\" --timeout 180000",
